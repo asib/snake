@@ -1,54 +1,57 @@
 package system
 
 import (
-	"fmt"
-
+	"github.com/asib/keycodes"
 	"github.com/asib/snake/game"
+	"github.com/asib/snake/system/draw/renderer"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/sdl_ttf"
 )
 
 type System struct {
-	Window  *sdl.Window
-	Screen  *sdl.Surface
-	Font    *ttf.Font
-	g       *game.Game
-	Running bool
-	Event   sdl.Event
+	Debug    bool
+	Window   *sdl.Window
+	Screen   *sdl.Surface
+	Renderer *renderer.SDLRenderer
+	g        *game.Game
+	Event    sdl.Event
 }
 
-func Create(w, h int) *System {
+func Create(debug bool, w, h int) *System {
 	return &System{
-		Window:  nil,
-		Screen:  nil,
-		Font:    nil,
-		g:       game.Create(w, h),
-		Running: true,
-		Event:   nil,
+		Debug:    debug,
+		Window:   nil,
+		Screen:   nil,
+		Renderer: nil,
+		g:        game.Create(debug, w, h),
+		Event:    nil,
 	}
 }
 
 func (s *System) Run() {
-	for s.Running {
+	for s.g.Running {
 		for s.Event = sdl.PollEvent(); s.Event != nil; s.Event = sdl.PollEvent() {
 			switch t := s.Event.(type) {
 			case *sdl.QuitEvent:
-				s.Running = false
+				s.g.Running = false
 			case *sdl.KeyDownEvent:
 				switch t.Keysym.Sym {
 				case sdl.K_ESCAPE:
-					s.Running = false
-				case sdl.K_RETURN:
-					fmt.Println("Bla")
+					if s.Debug {
+						s.g.Running = false
+					}
+				default:
+					s.g.KeyPress(keycodes.FromSDL(t.Keysym.Sym))
 				}
 			}
 		}
 
-		s.g.Run()
+		s.g.Run(s.Renderer)
 	}
 }
 
 func (s *System) Init() (err error) {
+	// Init SDL, create renderer, load fonts
 	sdl.Init(sdl.INIT_EVERYTHING)
 
 	win, err := sdl.CreateWindow(s.g.Title, sdl.WINDOWPOS_UNDEFINED,
@@ -57,6 +60,12 @@ func (s *System) Init() (err error) {
 		return
 	}
 	s.Window = win
+
+	r, err := sdl.CreateRenderer(win, -1, sdl.RENDERER_SOFTWARE|sdl.RENDERER_TARGETTEXTURE)
+	if err != nil {
+		return
+	}
+	s.Renderer = renderer.CreateSDLRenderer(r)
 
 	scr, err := win.GetSurface()
 	if err != nil {
@@ -68,26 +77,16 @@ func (s *System) Init() (err error) {
 		return
 	}
 
-	font, err := ttf.OpenFont("TimesNewRoman.ttf", 64)
-	if err != nil {
-		return
-	}
-	s.Font = font
-
-	/*
-	 *tSurf, err := calib.RenderUTF8_Blended("Test text", sdl.Color{0xff, 0, 0, 0xff})
-	 *if err != nil {
-	 *  return
-	 *}
-	 */
-
+	// Allow game to init
 	err = s.g.Init()
 
 	return
 }
 
 func (s *System) Deinit() {
+	// Release SDL resources
 	s.g.Deinit()
+	s.Renderer.Deinit()
 	s.Window.Destroy()
 	sdl.Quit()
 }
