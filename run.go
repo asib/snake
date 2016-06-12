@@ -1,6 +1,10 @@
 package main
 
-import sys "github.com/asib/snake/system"
+import (
+	"runtime"
+
+	sys "github.com/asib/snake/system"
+)
 
 const DEBUG = true
 
@@ -10,6 +14,10 @@ func initialize(s *sys.System) (err error) {
 	}
 
 	return
+}
+
+func init() {
+	runtime.LockOSThread()
 }
 
 func main() {

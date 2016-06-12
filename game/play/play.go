@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	TileSize = 10
-	timeStep = 100
+	TileSize       = 10
+	timeStep       = 80
+	appleExtension = 3
 )
 
 type Direction uint8
@@ -30,6 +31,7 @@ type Play struct {
 	apple        *draw.Point
 	snake        []*draw.Point
 	direction    Direction
+	extend       int
 	tileW, tileH int
 }
 
@@ -42,6 +44,7 @@ func Create(w, h int) *Play {
 		apple:      nil,
 		snake:      make([]*draw.Point, 0),
 		direction:  none,
+		extend:     0,
 		tileW:      tw,
 		tileH:      th,
 	}
@@ -71,11 +74,25 @@ func (p *Play) update() {
 			p.nextPosition(1, 0)
 		}
 
+		p.checkCollision()
+
 		p.lastUpdate = time.Now()
 	}
 }
 
+func (p *Play) checkCollision() {
+	// If there's a collision, set p.extend to the appleExtension constant
+	// Then, it gets decremented every update tick
+	// While it's nonzero, the nextPosition method won't delete the back of the
+	// snake each update.
+	if p.snake[0].X == p.apple.X && p.snake[0].Y == p.apple.Y {
+		p.extend = appleExtension
+		p.genApple()
+	}
+}
+
 func (p *Play) nextPosition(dx, dy int) {
+	// Get next position, modulo width/height to allow for teleporting
 	front := p.snake[0]
 	nx := (front.X + dx) % p.tileW
 	ny := (front.Y + dy) % p.tileH
@@ -86,9 +103,18 @@ func (p *Play) nextPosition(dx, dy int) {
 		ny += p.tileH
 	}
 
-	p.snake = append(p.snake[:len(p.snake)-1], nil)
-	copy(p.snake[1:], p.snake[:])
-	p.snake[0] = draw.CreatePoint(nx, ny)
+	if p.extend != 0 {
+		// If p.extend is nonzero, don't delete back of snake on update
+		p.extend -= 1
+		p.snake = append(p.snake, nil)
+		copy(p.snake[1:], p.snake[:])
+		p.snake[0] = draw.CreatePoint(nx, ny)
+	} else {
+		// Else, delete back as usual
+		p.snake = append(p.snake[:len(p.snake)-1], nil)
+		copy(p.snake[1:], p.snake[:])
+		p.snake[0] = draw.CreatePoint(nx, ny)
+	}
 }
 
 func (p *Play) draw(r renderer.Renderer) (err error) {
@@ -121,6 +147,7 @@ func (p *Play) drawApple(r renderer.Renderer) error {
 func (p *Play) genApple() {
 	var x, y int
 	overlapping := true
+	// Make sure the apple isn't on a square that the snake's body occupies
 	for overlapping {
 		overlapping = false
 		x, y = rand.Intn(p.tileW), rand.Intn(p.tileH)
@@ -137,6 +164,7 @@ func (p *Play) genApple() {
 
 func (p *Play) genSnake() {
 	x, y := rand.Intn(p.tileW), rand.Intn(p.tileH)
+	// Make sure the snake isn't on a square that the apple occupies
 	for (p.apple.X == x) && (p.apple.Y == y) {
 		x, y = rand.Intn(p.tileW), rand.Intn(p.tileH)
 	}
@@ -144,14 +172,24 @@ func (p *Play) genSnake() {
 }
 
 func (p *Play) KeyPress(k keys.Keycode) {
+	// Don't allow the player to reverse direction when the snake is more than
+	// 1 square long
 	switch k {
 	case keys.K_UP:
-		p.direction = up
+		if !(len(p.snake) > 1 && p.direction == down) {
+			p.direction = up
+		}
 	case keys.K_DOWN:
-		p.direction = down
+		if !(len(p.snake) > 1 && p.direction == up) {
+			p.direction = down
+		}
 	case keys.K_LEFT:
-		p.direction = left
+		if !(len(p.snake) > 1 && p.direction == right) {
+			p.direction = left
+		}
 	case keys.K_RIGHT:
-		p.direction = right
+		if !(len(p.snake) > 1 && p.direction == left) {
+			p.direction = right
+		}
 	}
 }
