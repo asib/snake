@@ -3,8 +3,8 @@ package fonts
 import "github.com/veandco/go-sdl2/sdl_ttf"
 
 type fontIdentifier struct {
-	Path string
-	Size int
+	path string
+	size int
 }
 
 type FontManager struct {

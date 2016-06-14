@@ -15,7 +15,6 @@ type GameState uint8
 const (
 	Menu GameState = iota
 	Play
-	Pause
 )
 
 type Game struct {
@@ -37,7 +36,7 @@ func Create(debug bool, w, h int) *Game {
 		Title:   menu.GameTitle,
 		State:   Menu,
 		Menu:    menu.Create(),
-		Play:    nil,
+		Play:    play.Create(w, h),
 	}
 }
 
@@ -66,17 +65,28 @@ func (g *Game) KeyPress(k keycodes.Keycode) {
 	case Menu:
 		if k == keycodes.K_RETURN {
 			g.State = Play
-			g.Play = play.Create(g.Width, g.Height)
 		} else if k == keycodes.K_ESCAPE {
 			g.Running = false
 		}
 	case Play:
-		g.Play.KeyPress(k)
+		if k == keycodes.K_ESCAPE {
+			g.Running = false
+			if err := g.Play.SaveHighscore(); err != nil {
+				log.Println(err)
+			}
+		} else {
+			g.Play.KeyPress(k)
+		}
 	}
 }
 
-func (g *Game) Init() (err error) {
-	return
+func (g *Game) Init() error {
+	err := g.Play.Init()
+	if err != nil {
+		return err
+	}
+	g.Menu.Init(g.Play.Highscore())
+	return nil
 }
 
 func (g *Game) Deinit() {

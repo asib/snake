@@ -1,6 +1,8 @@
 package system
 
 import (
+	"log"
+
 	"github.com/asib/keycodes"
 	"github.com/asib/snake/game"
 	"github.com/asib/snake/system/draw/renderer"
@@ -34,15 +36,11 @@ func (s *System) Run() {
 			switch t := s.Event.(type) {
 			case *sdl.QuitEvent:
 				s.g.Running = false
-			case *sdl.KeyDownEvent:
-				switch t.Keysym.Sym {
-				case sdl.K_ESCAPE:
-					if s.Debug {
-						s.g.Running = false
-					}
-				default:
-					s.g.KeyPress(keycodes.FromSDL(t.Keysym.Sym))
+				if err := s.g.Play.SaveHighscore(); err != nil {
+					log.Println(err)
 				}
+			case *sdl.KeyDownEvent:
+				s.g.KeyPress(keycodes.FromSDL(t.Keysym.Sym))
 			}
 		}
 

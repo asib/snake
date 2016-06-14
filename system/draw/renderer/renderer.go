@@ -13,6 +13,8 @@ type Renderer interface {
 	SizeUTF8(path string, size int, text string) (int, int, error)
 	DrawText(path string, size int, text string, color *draw.Color,
 		x, y int) error
+	DrawTextBg(path string, size int, text string, fg, bg *draw.Color,
+		x, y int) error
 }
 
 type SDLRenderer struct {
@@ -111,6 +113,25 @@ func (r *SDLRenderer) DrawText(path string, size int, text string,
 		return err
 	}
 	defer surf.Free()
+	return r.renderSurface(surf, x, y)
+}
+
+func (r *SDLRenderer) DrawTextBg(path string, size int, text string,
+	fg, bg *draw.Color, x, y int) error {
+	font, err := r.fontManager.GetFont(path, size)
+	if err != nil {
+		return err
+	}
+
+	surf, err := font.RenderUTF8_Shaded(text, fg.ToSDL(), bg.ToSDL())
+	if err != nil {
+		return err
+	}
+	defer surf.Free()
+	return r.renderSurface(surf, x, y)
+}
+
+func (r *SDLRenderer) renderSurface(surf *sdl.Surface, x, y int) error {
 	src := new(sdl.Rect)
 	surf.GetClipRect(src)
 	dst := &sdl.Rect{
